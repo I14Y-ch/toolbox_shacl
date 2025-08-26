@@ -1,1 +1,1 @@
-web: gunicorn app:app --worker-tmp-dir /dev/shm --bind 0.0.0.0:8080
+web: ./startup.sh gunicorn wsgi:app -c gunicorn.conf.py

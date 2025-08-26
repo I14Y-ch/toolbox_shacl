@@ -25,6 +25,11 @@ def index():
     """Main page to select the import type."""
     return render_template('index.html')
 
+@app.route('/health')
+def health():
+    """Health check endpoint for DigitalOcean."""
+    return {"status": "ok"}, 200
+
 @app.route('/csv_import')
 def csv_import():
     """CSV import form."""
@@ -259,3 +264,7 @@ if __name__ == '__main__':
     # Get port from environment variable (for DigitalOcean App Platform)
     port = int(os.environ.get("PORT", 8080))
     app.run(debug=False, host='0.0.0.0', port=port)
+else:
+    # This is important for gunicorn to find the app
+    # Disable debug for production
+    app.debug = False
