@@ -1,0 +1,12 @@
+{
+  "name": "toolbox-shacl",
+  "description": "SHACL Importer Web Application",
+  "buildpacks": [
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-apt"
+    },
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-python"
+    }
+  ]
+}
