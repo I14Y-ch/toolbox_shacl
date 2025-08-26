@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}JSON Template Import{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>JSON Template Import</h2>
+        <p>Upload a JSON template file to generate SHACL shapes from structured data definitions.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form action="{{ url_for('process_json') }}" method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="json_file" class="form-label">JSON Template File *</label>
+                <input type="file" class="form-control" id="json_file" name="json_file" accept=".json" required>
+                <div class="form-text">Select a JSON template file that defines your data structure.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="dataset_identifier" class="form-label">Dataset Identifier *</label>
+                <input type="text" class="form-control" id="dataset_identifier" name="dataset_identifier" 
+                       value="dataset_identifier" required>
+                <div class="form-text">Unique identifier for your dataset (used in URI generation).</div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+                <button type="submit" class="btn btn-success">Create Structure</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5 class="card-title">JSON Template Format</h5>
+        <p class="card-text">
+            Your JSON file should follow the expected template structure with classes, properties, and relations.
+            See the example files in the <code>import_template/json_template/example/</code> directory for reference.
+        </p>
+        <p class="card-text">
+            The template should include:
+        </p>
+        <ul>
+            <li>Classes with identifiers, names, and descriptions</li>
+            <li>Properties with datatypes and constraints</li>
+            <li>Relations between classes</li>
+            <li>Multi-language support for names and descriptions</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

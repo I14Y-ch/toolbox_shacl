@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Import{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>CSV Import</h2>
+        <p>Upload a CSV file to generate SHACL shapes based on the data structure and content.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form action="{{ url_for('process_csv') }}" method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="csv_file" class="form-label">CSV File *</label>
+                <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                <div class="form-text">Select a CSV file to analyze and convert to SHACL.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="dataset_identifier" class="form-label">Dataset Identifier *</label>
+                <input type="text" class="form-control" id="dataset_identifier" name="dataset_identifier" 
+                       value="dataset_identifier" required>
+                <div class="form-text">Unique identifier for your dataset (used in URI generation).</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="default_lang" class="form-label">Default Language</label>
+                <select class="form-control" id="default_lang" name="default_lang">
+                    <option value="">No language tag</option>
+                    <option value="de" selected>German (de)</option>
+                    <option value="en">English (en)</option>
+                    <option value="fr">French (fr)</option>
+                    <option value="it">Italian (it)</option>
+                </select>
+                <div class="form-text">Language for property names and descriptions.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="node_shape_name" class="form-label">Node Shape Name</label>
+                <input type="text" class="form-control" id="node_shape_name" name="node_shape_name">
+                <div class="form-text">Optional: Custom name for the main shape (uses filename if empty).</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="shape_identifier" class="form-label">Shape Identifier</label>
+                <input type="text" class="form-control" id="shape_identifier" name="shape_identifier">
+                <div class="form-text">Optional: Custom identifier for URI generation (uses filename if empty).</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="delimiter" class="form-label">CSV Delimiter</label>
+                <select class="form-control" id="delimiter" name="delimiter">
+                    <option value="">Auto-detect</option>
+                    <option value=",">Comma (,)</option>
+                    <option value=";">Semicolon (;)</option>
+                    <option value="\t">Tab</option>
+                </select>
+                <div class="form-text">Column separator used in your CSV file.</div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+                <button type="submit" class="btn btn-success">Create Structure</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

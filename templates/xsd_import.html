@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}XSD Import{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>XSD Import</h2>
+        <p>Upload an XML Schema Definition (XSD) file to generate corresponding SHACL shapes.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form action="{{ url_for('process_xsd') }}" method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="xsd_file" class="form-label">XSD File *</label>
+                <input type="file" class="form-control" id="xsd_file" name="xsd_file" accept=".xsd" required>
+                <div class="form-text">Select an XML Schema Definition file to convert to SHACL.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="dataset_identifier" class="form-label">Dataset Identifier *</label>
+                <input type="text" class="form-control" id="dataset_identifier" name="dataset_identifier" 
+                       value="dataset_identifier" required>
+                <div class="form-text">Unique identifier for your dataset (used in URI generation).</div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+                <button type="submit" class="btn btn-success">Create Structure</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5 class="card-title">XSD Import Information</h5>
+        <p class="card-text">
+            This import type transforms XML Schema Definition files into SHACL shapes. The converter handles:
+        </p>
+        <ul>
+            <li>Complex and simple type definitions</li>
+            <li>Element constraints and restrictions</li>
+            <li>Enumeration values</li>
+            <li>Type unions and extensions</li>
+            <li>Sequence and choice compositors</li>
+            <li>Attribute definitions</li>
+        </ul>
+        <p class="card-text">
+            The resulting SHACL shapes will preserve the structure and constraints defined in your XSD file.
+        </p>
+    </div>
+</div>
+{% endblock %}
