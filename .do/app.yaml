@@ -1,0 +1,21 @@
+name: toolbox-shacl
+services:
+- name: web
+  environment_slug: python
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: I14Y-ch/toolbox_shacl
+  health_check:
+    http_path: /
+  http_port: 8080
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /
+  source_dir: /
+  envs:
+  - key: PYTHONUNBUFFERED
+    value: "1"
+  - key: PORT
+    value: "8080"

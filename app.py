@@ -256,4 +256,6 @@ def process_xsd():
         return redirect(url_for('xsd_import'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Get port from environment variable (for DigitalOcean App Platform)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(debug=False, host='0.0.0.0', port=port)
