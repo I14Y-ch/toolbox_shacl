@@ -18,7 +18,7 @@ import os
 
 dataset_identifier = "dataset_identifier" # state here the dataset identifier, needed to create the URI
 
-i14y_base_path = "https://www.i14y.admin.ch/resources/datasets/" + dataset_identifier + "/structure/"
+i14y_base_path = "https://register.ld.admin.ch/i14y/dataset/" + dataset_identifier + "/structure/"
 
 # Define namespaces
 SH = Namespace("http://www.w3.org/ns/shacl#")
@@ -803,7 +803,7 @@ def xsd_to_shacl(xsd_file, output_file, base_path, dataset_identifier="dataset_i
     global I14Y
     
     # Update the namespace with the provided dataset_identifier
-    i14y_base_path = f"https://www.i14y.admin.ch/resources/datasets/{dataset_identifier}/structure/"
+    i14y_base_path = f"https://register.ld.admin.ch/i14y/dataset/{dataset_identifier}/structure/"
     I14Y = Namespace(i14y_base_path)
     
     xsd_root = parse_xsd(xsd_file)

@@ -61,7 +61,7 @@ def process_csv():
     try:
         # Get form data
         dataset_identifier = request.form.get('dataset_identifier', 'dataset_identifier')
-        base_uri = f"https://www.i14y.admin.ch/resources/datasets/{dataset_identifier}/structure/"
+        base_uri = f"https://register.ld.admin.ch/i14y/dataset/{dataset_identifier}/structure/"
         default_lang = request.form.get('default_lang', 'de')
         node_shape_name = request.form.get('node_shape_name', '')
         shape_identifier = request.form.get('shape_identifier', '')

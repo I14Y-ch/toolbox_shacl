@@ -178,7 +178,7 @@ class CSVToSHACL:
 
 if __name__ == "__main__":
     dataset_identifier = "dataset_identifier"
-    base_uri = "https://www.i14y.admin.ch/resources/datasets/" + dataset_identifier + "/structure/"
+    base_uri = "https://register.ld.admin.ch/i14y/dataset/" + dataset_identifier + "/structure/"
     default_lang = "de" #change with your default language
     transformer = CSVToSHACL(base_uri)
     

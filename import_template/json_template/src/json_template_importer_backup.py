@@ -6,7 +6,7 @@ def json_to_shacl(json_input, output_file, dataset_identifier="dataset_identifie
 
     SH = Namespace("http://www.w3.org/ns/shacl#")
     DCTERMS = Namespace("http://purl.org/dc/terms/")
-    BASE_URI = "https://www.i14y.admin.ch/resources/datasets/" + dataset_identifier + "/structure/"
+    BASE_URI = "https://register.ld.admin.ch/i14y/dataset/" + dataset_identifier + "/structure/"
     
     g = Graph()
     
