@@ -1,0 +1,56 @@
+FROM python:3.10.13-slim-bookworm AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+        libxml2-dev \
+        libxslt1-dev \
+        pkg-config \
+        python3-dev \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install -r requirements.txt
+
+FROM python:3.10.13-slim-bookworm AS runtime
+
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PORT=8080 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libxml2 \
+        libxslt1.1 \
+        zlib1g \
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --system --group --home /app appuser
+
+COPY --from=builder /opt/venv /opt/venv
+COPY . .
+
+RUN mkdir -p uploads \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 8080
+
+CMD ["gunicorn", "wsgi:app", "-c", "gunicorn.conf.py"]
