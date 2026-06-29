@@ -22,7 +22,7 @@ class DSD2SHACLTransformer:
     def _initialize_namespaces(self) -> None:
         """Set up all required namespaces and bind them to the graph."""
     
-        i14y_base_path = f"https://www.i14y.admin.ch/resources/datasets/{self.dataset_identifier}/structure/"
+        i14y_base_path = f"https://register.ld.admin.ch/i14y/dataset/{self.dataset_identifier}/structure/"
     
         
         self.sh = Namespace("http://www.w3.org/ns/shacl#")

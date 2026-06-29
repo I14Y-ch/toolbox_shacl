@@ -1,27 +1,29 @@
-{% extends "base.html" %}
-
-{% block title %}SHACL Importer - Home{% endblock %}
-
+{% extends "base.html" %} {% block title %}SHACL Importer - Home{% endblock %}
 {% block content %}
 <div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">SHACL Structure Generator for I14Y</h1>
-        <p class="lead">Select the type of import you want to perform:</p>
-    </div>
+  <div class="col-12">
+    <h1 class="mb-4">SHACL Structure Generator for I14Y</h1>
+    <p class="lead">Select the type of import you want to perform:</p>
+  </div>
 </div>
 
 <div class="row">
-    <div class="col-md-6 mb-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">CSV Import</h5>
-                <p class="card-text">Generate SHACL shapes from CSV files by analyzing column types and data patterns.</p>
-                <a href="{{ url_for('csv_import') }}" class="btn btn-primary">Start CSV Import</a>
-            </div>
-        </div>
+  <div class="col-md-6 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">CSV Import</h5>
+        <p class="card-text">
+          Generate SHACL shapes from CSV files by analyzing column types and
+          data patterns.
+        </p>
+        <a href="{{ url_for('csv_import') }}" class="btn btn-primary"
+          >Start CSV Import</a
+        >
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-6 mb-3">
+  <!-- <div class="col-md-6 mb-3">
         <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title">DSD Import</h5>
@@ -29,51 +31,64 @@
                 <a href="{{ url_for('dsd_import') }}" class="btn btn-primary">Start DSD Import</a>
             </div>
         </div>
-    </div>
+    </div> -->
 
-    <div class="col-md-6 mb-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">JSON Template Import</h5>
-                <p class="card-text">Create SHACL shapes from structured JSON template files.</p>
-                <a href="{{ url_for('json_import') }}" class="btn btn-primary">Start JSON Import</a>
-            </div>
-        </div>
+  <div class="col-md-6 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">JSON Template Import</h5>
+        <p class="card-text">
+          Create SHACL shapes from structured JSON template files.
+        </p>
+        <a href="{{ url_for('json_import') }}" class="btn btn-primary"
+          >Start JSON Import</a
+        >
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-6 mb-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">PostgreSQL Import</h5>
-                <p class="card-text">Generate SHACL shapes from PostgreSQL database schema.</p>
-                <a href="{{ url_for('postgres_import') }}" class="btn btn-primary">Start PostgreSQL Import</a>
-            </div>
-        </div>
+  <div class="col-md-6 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">PostgreSQL Import</h5>
+        <p class="card-text">
+          Generate SHACL shapes from PostgreSQL database schema.
+        </p>
+        <a href="{{ url_for('postgres_import') }}" class="btn btn-primary"
+          >Start PostgreSQL Import</a
+        >
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-6 mb-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">XSD Import</h5>
-                <p class="card-text">Transform XML Schema Definition (XSD) files to SHACL shapes.</p>
-                <a href="{{ url_for('xsd_import') }}" class="btn btn-primary">Start XSD Import</a>
-            </div>
-        </div>
+  <div class="col-md-6 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">XSD Import</h5>
+        <p class="card-text">
+          Transform XML Schema Definition (XSD) files to SHACL shapes.
+        </p>
+        <a href="{{ url_for('xsd_import') }}" class="btn btn-primary"
+          >Start XSD Import</a
+        >
+      </div>
     </div>
+  </div>
 </div>
 
 <div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">About</h5>
-                <p class="card-text">
-                    This web application provides an easy way to generate SHACL (Shapes Constraint Language) 
-                    structures for the Swiss Interoperability Platform I14Y. Choose your data source type 
-                    above and follow the guided process to create your structure file.
-                </p>
-            </div>
-        </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">About</h5>
+        <p class="card-text">
+          This web application provides an easy way to generate SHACL (Shapes
+          Constraint Language) structures for the Swiss Interoperability
+          Platform I14Y. Choose your data source type above and follow the
+          guided process to create your structure file.
+        </p>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
