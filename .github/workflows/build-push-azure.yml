@@ -21,7 +21,6 @@ env:
 jobs:
   image-build-and-push:
     runs-on: ubuntu-latest
-    environment: DEV
 
     outputs:
       image_name: ${{ env.IMAGE_NAME }}
@@ -142,4 +141,3 @@ jobs:
             echo "TF_VAR_image_tag=${DOCKER_VERSION}"
             echo "\`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
