@@ -1,1 +1,6 @@
 venv
+__pycache__/
+*.py[cod]
+
+# Local-only security regression/reproduction files
+tests/test_xsd_security.py

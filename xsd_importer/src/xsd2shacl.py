@@ -4,10 +4,13 @@
 # Source: https://github.com/dtai-kg/XSD2SHACL
 # License: Apache License 2.0
 
+from io import BytesIO
+from pathlib import Path
+from urllib.parse import urlparse
+
 from lxml import etree
 from rdflib import Graph, Namespace, Literal, URIRef, BNode
 from rdflib.namespace import RDF, RDFS, XSD, OWL
-import os
 
 dataset_identifier = "dataset_identifier"
 i14y_base_path = "https://register.ld.admin.ch/i14y/dataset/" + dataset_identifier + "/structure/"
@@ -17,12 +20,59 @@ SH = Namespace("http://www.w3.org/ns/shacl#")
 I14Y = Namespace(i14y_base_path)
 DCT = Namespace("http://purl.org/dc/terms/")
 
+class UnsafeXSDInputError(ValueError):
+    """Raised when an uploaded XSD uses unsafe XML features."""
+
+
+def _secure_xml_parser():
+    return etree.XMLParser(
+        resolve_entities=False,
+        load_dtd=False,
+        no_network=True,
+        dtd_validation=False,
+        attribute_defaults=False,
+        recover=False,
+        huge_tree=False,
+    )
+
+
+def _reject_doctype(xml_content):
+    if b"<!DOCTYPE" in xml_content.upper():
+        raise UnsafeXSDInputError("DTD declarations are not allowed in XSD uploads")
+
+
+def _safe_import_path(base_path, schema_location):
+    parsed_location = urlparse(schema_location)
+    if parsed_location.scheme or parsed_location.netloc:
+        return None
+
+    base_dir = Path(base_path).resolve()
+    import_path = (base_dir / schema_location).resolve()
+
+    try:
+        import_path.relative_to(base_dir)
+    except ValueError:
+        return None
+
+    if import_path.is_file():
+        return import_path
+
+    return None
+
+
 def parse_xsd(xsd_file):
     """Parse the XSD file and return the root element."""
     with open(xsd_file, 'rb') as f:
-        tree = etree.parse(f)
-        root = tree.getroot()
-        return root
+        xml_content = f.read()
+
+    _reject_doctype(xml_content)
+
+    tree = etree.parse(BytesIO(xml_content), parser=_secure_xml_parser())
+    if tree.docinfo.doctype:
+        raise UnsafeXSDInputError("DTD declarations are not allowed in XSD uploads")
+
+    root = tree.getroot()
+    return root
 
 def resolve_imports(xsd_root, base_path):
     """Resolve and parse imported XSD files."""
@@ -30,9 +80,9 @@ def resolve_imports(xsd_root, base_path):
     for imp in imports:
         schema_location = imp.get('schemaLocation')
         if schema_location:
-            import_path = os.path.join(base_path, schema_location)
-            if os.path.exists(import_path):
-                imported_root = parse_xsd(import_path)
+            import_path = _safe_import_path(base_path, schema_location)
+            if import_path is not None:
+                parse_xsd(import_path)
 
 def handle_enumeration(enumerations, subject, graph):
     """Handle XSD enumeration with sh:in."""
