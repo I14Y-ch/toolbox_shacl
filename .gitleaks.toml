@@ -1,0 +1,14 @@
+# gitleaks configuration
+# Extends the default ruleset and adds allowlisted paths for vendored assets.
+# Minified third-party JS/CSS can trigger high-entropy false positives.
+# Docs: https://github.com/gitleaks/gitleaks/blob/master/README.md#configuration
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored third-party assets served from /static (checked-in to satisfy CSP style-src/script-src 'self')."
+paths = [
+    '''(?i)^static/js/bootstrap\.bundle\.min\.js$''',
+    '''(?i)^static/css/bootstrap\.min\.css$''',
+]
