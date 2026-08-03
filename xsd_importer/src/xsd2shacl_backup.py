@@ -19,6 +19,8 @@ from lxml import etree
 from rdflib import Graph, Namespace, Literal, URIRef, BNode
 from rdflib.namespace import RDF, RDFS, XSD, OWL
 
+from security_limits import ConversionLimitError, MAX_XSD_INPUT_BYTES, MAX_XSD_NODES
+
 dataset_identifier = "dataset_identifier" # state here the dataset identifier, needed to create the URI
 
 i14y_base_path = "https://register.ld.admin.ch/i14y/dataset/" + dataset_identifier + "/structure/"
@@ -71,7 +73,10 @@ def _safe_import_path(base_path, schema_location):
 def parse_xsd(xsd_file):
     """Parse the XSD file and return the root element."""
     with open(xsd_file, 'rb') as f:
-        xml_content = f.read()
+        xml_content = f.read(MAX_XSD_INPUT_BYTES + 1)
+
+    if len(xml_content) > MAX_XSD_INPUT_BYTES:
+        raise ConversionLimitError('XSD input exceeds the allowed size', status_code=413)
 
     _reject_doctype(xml_content)
 
@@ -80,6 +85,9 @@ def parse_xsd(xsd_file):
         raise UnsafeXSDInputError("DTD declarations are not allowed in XSD uploads")
 
     root = tree.getroot()
+    for node_count, _node in enumerate(root.iter(), start=1):
+        if node_count > MAX_XSD_NODES:
+            raise ConversionLimitError('XSD contains too many XML nodes')
     return root
 
 def resolve_imports(xsd_root, base_path):

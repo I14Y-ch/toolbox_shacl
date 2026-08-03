@@ -24,8 +24,9 @@ This Flask web application provides a user-friendly interface for generating SHA
    pip install -r requirements.txt
    ```
 
-3. **Run the Flask application:**
+3. **Configure the session secret and run the Flask application:**
    ```bash
+   export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
    python app.py
    ```
 
@@ -41,13 +42,15 @@ This Flask web application provides a user-friendly interface for generating SHA
 
 ## Configuration
 
-- **Upload Folder**: Files are temporarily stored in the `uploads/` directory
-- **Max File Size**: 16MB limit for uploaded files
-- **Supported Formats**: CSV, JSON, XSD files
+- `SECRET_KEY` is mandatory and must contain at least 32 characters.
+- `ENABLE_POSTGRES_IMPORT` defaults to `false`.
+- `POSTGRES_ALLOWED_NETWORKS` is mandatory when PostgreSQL import is enabled. It accepts comma-separated exact hostnames and CIDR networks.
+- `RATELIMIT_STORAGE_URI` defaults to in-process memory; use shared storage when several replicas must share counters.
+- Uploads are temporary. CSV accepts up to 16 MiB; JSON and XSD accept up to 4 MiB; generated TTL files are limited to 16 MiB.
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.12
 - Flask
 - rdflib
 - lxml (for XSD processing)

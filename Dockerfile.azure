@@ -1,4 +1,5 @@
-FROM python:3.10.13-slim-bookworm AS builder
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -7,25 +8,18 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        gcc \
-        g++ \
-        libxml2-dev \
-        libxslt1-dev \
-        pkg-config \
-        python3-dev \
-        zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt .
 
-RUN python -m venv /opt/venv \
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then \
+        export PIP_CERT=/run/secrets/proxy_ca REQUESTS_CA_BUNDLE=/run/secrets/proxy_ca; \
+    fi \
+    && python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
-    && /opt/venv/bin/pip install -r requirements.txt
+    && /opt/venv/bin/pip install -r requirements.txt \
+    && /opt/venv/bin/pip uninstall --yes pip setuptools wheel
 
-FROM python:3.10.13-slim-bookworm AS runtime
+FROM python:3.12-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b AS runtime
 
 ENV PATH="/opt/venv/bin:${PATH}" \
     PORT=8080 \
@@ -35,19 +29,21 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        libxml2 \
-        libxslt1.1 \
-        zlib1g \
+    && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/* \
-    && adduser --system --group --home /app appuser
+    && python -m pip uninstall --yes pip setuptools wheel \
+    && adduser --system --group --home /app appuser \
+    && mkdir -p uploads \
+    && chown appuser:appuser uploads
 
-COPY --from=builder /opt/venv /opt/venv
-COPY . .
-
-RUN mkdir -p uploads \
-    && chown -R appuser:appuser /app
+COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
+COPY --chown=appuser:appuser app.py wsgi.py gunicorn.conf.py security_limits.py ./
+COPY --chown=appuser:appuser templates ./templates
+COPY --chown=appuser:appuser csv_importer/src ./csv_importer/src
+COPY --chown=appuser:appuser dsd_importer/src ./dsd_importer/src
+COPY --chown=appuser:appuser import_template/json_template/src ./import_template/json_template/src
+COPY --chown=appuser:appuser postgres_importer/src ./postgres_importer/src
+COPY --chown=appuser:appuser xsd_importer/src ./xsd_importer/src
 
 USER appuser
 

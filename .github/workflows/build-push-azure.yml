@@ -1,4 +1,4 @@
-name: Build & Push Docker Image to ACR
+name: Build, Scan & Deploy Docker Image to ACR
 
 on:
   push:
@@ -9,9 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
-  packages: read
 
 env:
   IMAGE_NAME: ${{ vars.IMAGE_NAME }}
@@ -21,8 +19,67 @@ env:
   AZURE_CONTAINER_APP_RESOURCE_GROUP: ${{ vars.AZURE_CONTAINER_APP_RESOURCE_GROUP }}
 
 jobs:
-  image-build-and-push:
+  security-checks:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install application and security tools
+        # setuptools<81 is required because semgrep depends on an old
+        # opentelemetry-instrumentation that still imports pkg_resources.
+        # setuptools 81 removed pkg_resources, so we must pin below that.
+        run: |
+          python -m pip install --upgrade pip "setuptools<81"
+          python -m pip install -r requirements.txt pip-audit==2.9.0 bandit==1.8.6 semgrep==1.99.0
+
+      - name: Configure test secret
+        shell: bash
+        run: python -c "import secrets; print('SECRET_KEY=' + secrets.token_urlsafe(48))" >> "$GITHUB_ENV"
+
+      - name: Run tests and Python security checks
+        run: |
+          python -m pip check
+          python -m unittest discover -s tests
+          python -m pip_audit -r requirements.txt --progress-spinner off
+          python -m bandit -r . -x ./.git,./tests,./venv,./.venv,./__pycache__ -ll
+
+      - name: Run Semgrep OWASP security scan
+        run: |
+          semgrep scan --config p/python --config p/flask --config p/owasp-top-ten --severity ERROR --error --skip-unknown-extensions --exclude tests --exclude .venv --exclude venv
+
+      - name: Scan repository history for secrets (gitleaks CLI)
+        # The gitleaks binary itself is MIT-licensed and free for any use,
+        # including organizations. We invoke the CLI directly (with pinned
+        # version + sha256) instead of gitleaks-action to avoid the paid
+        # organization license required by the action wrapper.
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          set -euo pipefail
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks version
+          /tmp/gitleaks detect --source . --redact --verbose --exit-code 1
+
+  image-build-and-push:
+    needs: security-checks
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
 
     outputs:
       image_name: ${{ env.IMAGE_NAME }}
@@ -31,12 +88,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Azure Login UAMI via OIDC
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
         with:
           client-id: ${{ secrets.AZURE_ACR_UAMI_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -48,27 +103,20 @@ jobs:
           AZURE_ACR: ${{ secrets.AZURE_ACR }}
         run: |
           set -euo pipefail
-
           if [ -z "${AZURE_ACR}" ]; then
             echo "AZURE_ACR secret is required."
             exit 1
           fi
-
           az acr login --name "${AZURE_ACR}"
 
-      - name: Compose & export versions
+      - name: Compose and export versions
         id: export-versions
         shell: bash
         env:
           AZURE_ACR: ${{ secrets.AZURE_ACR }}
         run: |
           set -euo pipefail
-
-          AZURE_ACR_LOGIN_SERVER="$(az acr show \
-            -n "$AZURE_ACR" \
-            --query loginServer \
-            -o tsv)"
-
+          AZURE_ACR_LOGIN_SERVER="$(az acr show -n "$AZURE_ACR" --query loginServer -o tsv)"
           DOCKER_VERSION="$(date +"%Y%m%d%H%M%S")"
           SHORT_SHA="${GITHUB_SHA::12}"
           IMAGE_FULL="${AZURE_ACR_LOGIN_SERVER}/${IMAGE_NAME}:${DOCKER_VERSION}"
@@ -77,51 +125,68 @@ jobs:
           echo "DOCKER_VERSION=${DOCKER_VERSION}" >> "$GITHUB_ENV"
           echo "SHORT_SHA=${SHORT_SHA}" >> "$GITHUB_ENV"
           echo "IMAGE_FULL=${IMAGE_FULL}" >> "$GITHUB_ENV"
-
           echo "docker_version=${DOCKER_VERSION}" >> "$GITHUB_OUTPUT"
           echo "image_full=${IMAGE_FULL}" >> "$GITHUB_OUTPUT"
 
-      - name: Show version
-        shell: bash
-        run: |
-          echo "DockerVersion=$DOCKER_VERSION"
-          echo "ShortSha=$SHORT_SHA"
-          echo "ImageName=$IMAGE_NAME"
-          echo "AcrLoginServer=$AZURE_ACR_LOGIN_SERVER"
-          echo "ImageFull=$IMAGE_FULL"
-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Build & push image
+      - name: Build image locally
         shell: bash
         env:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-
           if [ -z "${IMAGE_NAME}" ]; then
             echo "IMAGE_NAME variable is required."
             exit 1
           fi
-
           if [ ! -f "${DOCKERFILE_PATH}" ]; then
             echo "Dockerfile not found: ${DOCKERFILE_PATH}"
             exit 1
           fi
 
           IMAGE="${AZURE_ACR_LOGIN_SERVER}/${IMAGE_NAME}"
-          echo "Building and pushing ${IMAGE}:$DOCKER_VERSION"
-
           docker buildx build \
             --file "${DOCKERFILE_PATH}" \
-            --push \
+            --load \
             --label org.opencontainers.image.version="$DOCKER_VERSION" \
             --label org.opencontainers.image.revision="$SHA" \
             -t "$IMAGE:$DOCKER_VERSION" \
             -t "$IMAGE:$SHORT_SHA" \
             -t "$IMAGE:latest" \
             "${DOCKER_BUILD_CONTEXT}"
+
+      - name: Scan final image for fixable High and Critical vulnerabilities
+        # Trivy CLI (Apache-2.0) installed directly instead of via
+        # aquasecurity/trivy-action, whose install.sh has been failing
+        # silently on the pinned v0.65.0 release.
+        env:
+          TRIVY_VERSION: "0.72.0"
+          TRIVY_SHA256: "bbb64b9695866ce4a7a8f5c9592002c5961cab378577fa3f8a040df362b9b2ea"
+        run: |
+          set -euo pipefail
+          curl -sSfL -o /tmp/trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  /tmp/trivy.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          /tmp/trivy --version
+          /tmp/trivy image \
+            --format table \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            "${IMAGE_FULL}"
+
+      - name: Push scanned image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${AZURE_ACR_LOGIN_SERVER}/${IMAGE_NAME}"
+          docker push "$IMAGE:$DOCKER_VERSION"
+          docker push "$IMAGE:$SHORT_SHA"
+          docker push "$IMAGE:latest"
 
       - name: Validate PRD Azure credentials
         shell: bash
@@ -131,7 +196,6 @@ jobs:
           AZURE_SUBSCRIPTION_ID_PRD: ${{ secrets.AZURE_SUBSCRIPTION_ID_PRD }}
         run: |
           set -euo pipefail
-
           missing=0
           for name in AZURE_UAMI_CLIENT_ID_PRD AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID_PRD; do
             if [ -z "${!name}" ]; then
@@ -139,34 +203,72 @@ jobs:
               missing=1
             fi
           done
-
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
 
       - name: Azure Login PRD UAMI via OIDC
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
         with:
           client-id: ${{ secrets.AZURE_UAMI_CLIENT_ID_PRD }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_PRD }}
 
+      - name: Validate Container App security configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${AZURE_CONTAINER_APP_NAME}" ] || [ -z "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" ]; then
+            echo "Container App name and resource group variables are required."
+            exit 1
+          fi
+
+          SECRET_REF="$(az containerapp show \
+            --name "${AZURE_CONTAINER_APP_NAME}" \
+            --resource-group "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" \
+            --query "properties.template.containers[0].env[?name=='SECRET_KEY'].secretRef | [0]" \
+            -o tsv)"
+          if [ -z "${SECRET_REF}" ]; then
+            echo "SECRET_KEY must reference a Container App secret before deployment."
+            exit 1
+          fi
+
+          SECRET_EXISTS="$(az containerapp secret list \
+            --name "${AZURE_CONTAINER_APP_NAME}" \
+            --resource-group "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" \
+            --query "[?name=='${SECRET_REF}'].name | [0]" \
+            -o tsv)"
+          if [ -z "${SECRET_EXISTS}" ]; then
+            echo "The Container App secret referenced by SECRET_KEY does not exist."
+            exit 1
+          fi
+
+          POSTGRES_ENABLED="$(az containerapp show \
+            --name "${AZURE_CONTAINER_APP_NAME}" \
+            --resource-group "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" \
+            --query "properties.template.containers[0].env[?name=='ENABLE_POSTGRES_IMPORT'].value | [0]" \
+            -o tsv)"
+          if [ "${POSTGRES_ENABLED,,}" = "true" ]; then
+            POSTGRES_ALLOWLIST_VALUE="$(az containerapp show \
+              --name "${AZURE_CONTAINER_APP_NAME}" \
+              --resource-group "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" \
+              --query "properties.template.containers[0].env[?name=='POSTGRES_ALLOWED_NETWORKS'].value | [0]" \
+              -o tsv)"
+            POSTGRES_ALLOWLIST_SECRET="$(az containerapp show \
+              --name "${AZURE_CONTAINER_APP_NAME}" \
+              --resource-group "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" \
+              --query "properties.template.containers[0].env[?name=='POSTGRES_ALLOWED_NETWORKS'].secretRef | [0]" \
+              -o tsv)"
+            if [ -z "${POSTGRES_ALLOWLIST_VALUE}" ] && [ -z "${POSTGRES_ALLOWLIST_SECRET}" ]; then
+              echo "POSTGRES_ALLOWED_NETWORKS is required when PostgreSQL import is enabled."
+              exit 1
+            fi
+          fi
+
       - name: Update Azure Container App
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ -z "${AZURE_CONTAINER_APP_NAME}" ]; then
-            echo "AZURE_CONTAINER_APP_NAME variable is required."
-            exit 1
-          fi
-
-          if [ -z "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" ]; then
-            echo "AZURE_CONTAINER_APP_RESOURCE_GROUP variable is required."
-            exit 1
-          fi
-
-          echo "Updating Azure Container App ${AZURE_CONTAINER_APP_NAME} with ${IMAGE_FULL}"
           az containerapp update \
             --name "${AZURE_CONTAINER_APP_NAME}" \
             --resource-group "${AZURE_CONTAINER_APP_RESOURCE_GROUP}" \
@@ -176,7 +278,7 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## Docker image pushed"
+            echo "## Scanned Docker image deployed"
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
@@ -185,6 +287,4 @@ jobs:
             echo "| Short SHA tag | \`${SHORT_SHA}\` |"
             echo "| Full image | \`${IMAGE_FULL}\` |"
             echo "| Container app | \`${AZURE_CONTAINER_APP_NAME}\` |"
-            echo "| Container app resource group | \`${AZURE_CONTAINER_APP_RESOURCE_GROUP}\` |"
-            echo ""
           } >> "$GITHUB_STEP_SUMMARY"

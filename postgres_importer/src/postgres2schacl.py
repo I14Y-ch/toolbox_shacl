@@ -1,3 +1,6 @@
+import ipaddress
+import socket
+
 import psycopg2
 from rdflib import Graph, Namespace, Literal, URIRef, BNode
 from rdflib.namespace import RDF, RDFS, XSD, DCTERMS
@@ -10,15 +13,74 @@ load_dotenv()
 SH = Namespace("http://www.w3.org/ns/shacl#")
 DB = Namespace("http://example.org/database#")
 DCT = Namespace("http://purl.org/dc/terms/")
+DEFAULT_CONNECT_TIMEOUT = 5
+DEFAULT_STATEMENT_TIMEOUT_MS = 10_000
 
-def connect_to_postgres(host, port, database, user, password):
+
+class PostgresTargetError(ValueError):
+    """Raised when a PostgreSQL target is outside the configured allowlist."""
+
+
+def _parse_allowed_targets(raw_allowlist):
+    hostnames = set()
+    networks = []
+    for value in (item.strip() for item in raw_allowlist.split(',')):
+        if not value:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(value, strict=False))
+        except ValueError:
+            hostnames.add(value.rstrip('.').lower())
+    return hostnames, networks
+
+
+def resolve_allowed_postgres_target(host, raw_allowlist):
+    """Resolve a PostgreSQL host and ensure every result is explicitly allowed."""
+    hostnames, networks = _parse_allowed_targets(raw_allowlist)
+    if not hostnames and not networks:
+        raise PostgresTargetError('PostgreSQL allowlist is required')
+
+    normalized_host = host.strip().strip('[]').rstrip('.').lower()
+    try:
+        addresses = {
+            ipaddress.ip_address(item[4][0])
+            for item in socket.getaddrinfo(normalized_host, None, type=socket.SOCK_STREAM)
+        }
+    except (OSError, ValueError) as error:
+        raise PostgresTargetError('PostgreSQL host cannot be resolved') from error
+
+    if not addresses:
+        raise PostgresTargetError('PostgreSQL host cannot be resolved')
+
+    hostname_allowed = normalized_host in hostnames
+    if not hostname_allowed and any(
+        not any(address in network for network in networks)
+        for address in addresses
+    ):
+        raise PostgresTargetError('PostgreSQL host is outside the allowlist')
+
+    return str(sorted(addresses, key=lambda address: (address.version, int(address)))[0])
+
+
+def connect_to_postgres(
+    host,
+    port,
+    database,
+    user,
+    password,
+    connect_timeout=DEFAULT_CONNECT_TIMEOUT,
+    hostaddr=None,
+):
     """Connect to the PostgreSQL database."""
     conn = psycopg2.connect(
         host=host,
         port=port,
         database=database,
         user=user,
-        password=password
+        password=password,
+        connect_timeout=connect_timeout,
+        hostaddr=hostaddr,
+        options=f'-c statement_timeout={DEFAULT_STATEMENT_TIMEOUT_MS}',
     )
     return conn
 
@@ -90,12 +152,33 @@ def save_shacl(g, output_file):
     """Save the SHACL graph to an RDF file."""
     g.serialize(destination=output_file, format="turtle")
 
-def postgres_to_shacl(host, port, database, user, password, schema, output_file):
+def postgres_to_shacl(
+    host,
+    port,
+    database,
+    user,
+    password,
+    schema,
+    output_file,
+    connect_timeout=DEFAULT_CONNECT_TIMEOUT,
+    hostaddr=None,
+):
     """Convert a PostgreSQL database schema to a SHACL RDF file."""
-    conn = connect_to_postgres(host, port, database, user, password)
-    schema_info = fetch_schema_info(conn, schema)
-    foreign_keys = fetch_foreign_keys(conn, schema)
-    conn.close()
+    conn = connect_to_postgres(
+        host,
+        port,
+        database,
+        user,
+        password,
+        connect_timeout=connect_timeout,
+        hostaddr=hostaddr,
+    )
+    try:
+        schema_info = fetch_schema_info(conn, schema)
+        foreign_keys = fetch_foreign_keys(conn, schema)
+    finally:
+        conn.close()
+
     shacl_graph = generate_shacl(schema_info, foreign_keys)
     save_shacl(shacl_graph, output_file)
 

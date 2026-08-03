@@ -1,24 +1,22 @@
 import os
 
-# Get port from environment
-port = os.environ.get("PORT", "8080")
+port = os.environ.get('PORT', '8080')
+bind = f'0.0.0.0:{port}'
 
-# Bind to the correct address and port
-bind = f"0.0.0.0:{port}"
+workers = int(os.environ.get('WEB_CONCURRENCY', '2'))
+worker_class = 'sync'
+worker_tmp_dir = '/dev/shm'  # nosec B108
 
-# Worker options
-workers = 2
-worker_class = "sync"
-worker_tmp_dir = "/dev/shm"
+accesslog = '-'
+errorlog = '-'
+loglevel = 'info'
 
-# Logging
-accesslog = "-"
-errorlog = "-"
-loglevel = "info"
-
-# Timeout settings
-timeout = 120
+timeout = 45
+graceful_timeout = 15
 keepalive = 5
+max_requests = 500
+max_requests_jitter = 50
+limit_request_fields = 50
+limit_request_field_size = 8190
 
-# Preload app for better performance
 preload_app = True

@@ -12,3 +12,9 @@ __pycache__
 .ruff_cache
 uploads
 *.log
+tests
+.env
+.env.*
+*.crt
+*.key
+*.pem
