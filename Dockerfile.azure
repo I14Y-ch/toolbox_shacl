@@ -39,6 +39,7 @@ RUN apt-get update \
 COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
 COPY --chown=appuser:appuser app.py wsgi.py gunicorn.conf.py security_limits.py ./
 COPY --chown=appuser:appuser templates ./templates
+COPY --chown=appuser:appuser static ./static
 COPY --chown=appuser:appuser csv_importer/src ./csv_importer/src
 COPY --chown=appuser:appuser dsd_importer/src ./dsd_importer/src
 COPY --chown=appuser:appuser import_template/json_template/src ./import_template/json_template/src
