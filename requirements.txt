@@ -3,7 +3,7 @@ Werkzeug==3.1.8
 rdflib==7.6.0
 lxml==6.1.0
 psycopg2-binary==2.9.12
-beautifulsoup4==4.12.2
+beautifulsoup4==4.15.0
 requests==2.34.2
 python-dotenv==1.2.3
 urllib3==2.7.0
